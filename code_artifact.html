@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>社區長照個案管理與實務 - 互動教學與測驗系統</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f8fafc;
+        }
+        .matching-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .matching-card.selected {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        }
+        .matching-card.matched {
+            border-color: #10b981;
+            background-color: #ecfdf5;
+            opacity: 0.85;
+            pointer-events: none;
+        }
+        .matching-card.wrong {
+            border-color: #ef4444;
+            background-color: #fef2f2;
+            animation: shake 0.4s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col justify-between">
+
+    <!-- 頂部導覽列 Header -->
+    <header class="bg-gradient-to-r from-teal-700 to-emerald-800 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-hand-holding-hand text-2xl text-amber-300"></i>
+                <div>
+                    <h1 class="text-lg md:text-xl font-bold">社區長照個案管理與實務</h1>
+                    <p class="text-xs text-teal-100 hidden sm:block">臺中市霧峰區社區長照資源地圖與互動教學</p>
+                </div>
+            </div>
+            
+            <!-- 學生資訊簡記 & 導覽選單 -->
+            <div class="flex items-center space-x-4">
+                <div id="userInfoHeader" class="hidden text-xs md:text-sm bg-teal-900/50 px-3 py-1.5 rounded-full border border-teal-500/30">
+                    <span id="userHeaderName" class="font-semibold text-amber-200">未登入</span> 
+                    <span id="userHeaderDept" class="text-teal-200 hidden md:inline"></span>
+                </div>
+                <nav class="flex space-x-1 sm:space-x-2">
+                    <button onclick="switchTab('learn')" id="nav-learn" class="px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition bg-teal-900/80 text-amber-300">
+                        <i class="fa-solid fa-book-open mr-1"></i>知識學習
+                    </button>
+                    <button onclick="switchTab('game')" id="nav-game" class="px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition hover:bg-teal-900/50">
+                        <i class="fa-solid fa-puzzle-piece mr-1"></i>配對遊戲
+                    </button>
+                    <button onclick="switchTab('results')" id="nav-results" class="px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition hover:bg-teal-900/50">
+                        <i class="fa-solid fa-clipboard-list mr-1"></i>成績紀錄
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要內容區域 Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full">
+
+        <!-- ================= Modal: 學生登入與個人資料填寫 ================= -->
+        <div id="loginModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 md:p-8 transform transition-all">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                        <i class="fa-solid fa-user-graduate"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800">課堂簽到與學習開始</h2>
+                    <p class="text-sm text-slate-500 mt-1">請輸入您的基本資料以記錄測驗成績</p>
+                </div>
+
+                <form id="studentForm" onsubmit="handleLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">學生姓名 <span class="text-red-500">*</span></label>
+                        <input type="text" id="studentName" required placeholder="請輸入姓名 (例如: 賴昱蓁)" 
+                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none text-sm transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">科系班級 <span class="text-red-500">*</span></label>
+                        <input type="text" id="studentDept" required placeholder="請輸入科系 (例如: 老服二1)" 
+                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none text-sm transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">學號 <span class="text-red-500">*</span></label>
+                        <input type="text" id="studentId" required placeholder="請輸入學號 (例如: 1411353034)" 
+                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none text-sm transition">
+                    </div>
+
+                    <button type="submit" class="w-full mt-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-teal-600/30 transition duration-200 flex items-center justify-center space-x-2">
+                        <span>開始學習與體驗</span>
+                        <i class="fa-solid fa-arrow-right text-xs"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ================= TAB 1: 知識學習庫 (根據 PPTX 導讀) ================= -->
+        <section id="tab-learn" class="space-y-6">
+            <!-- 導覽頁籤標頭 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <span class="bg-teal-100 text-teal-800 text-xs font-semibold px-2.5 py-1 rounded-md">期中報告實務專案</span>
+                    <h2 class="text-2xl font-bold text-slate-800 mt-2">臺中市霧峰區 - 社區長照資源地圖</h2>
+                    <p class="text-sm text-slate-500 mt-1">報告人：老服二1 賴昱蓁 (學號：1411353034)</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <span class="bg-amber-50 text-amber-700 border border-amber-200 text-xs px-3 py-1.5 rounded-lg flex items-center">
+                        <i class="fa-solid fa-users mr-1.5"></i>總人口：約 2,287 人
+                    </span>
+                    <span class="bg-rose-50 text-rose-700 border border-rose-200 text-xs px-3 py-1.5 rounded-lg flex items-center">
+                        <i class="fa-solid fa-person-cane mr-1.5"></i>老年人口：342 人
+                    </span>
+                </div>
+            </div>
+
+            <!-- 分類標籤頁 Tabs Filter -->
+            <div class="flex overflow-x-auto space-x-2 border-b border-slate-200 pb-2">
+                <button onclick="filterResources('all')" class="cat-btn active px-4 py-2 text-sm font-medium rounded-lg bg-teal-600 text-white shadow-sm whitespace-nowrap">全部資源</button>
+                <button onclick="filterResources('culture')" class="cat-btn px-4 py-2 text-sm font-medium rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 whitespace-nowrap">地方文化特色</button>
+                <button onclick="filterResources('A')" class="cat-btn px-4 py-2 text-sm font-medium rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 whitespace-nowrap">長照 A 單位</button>
+                <button onclick="filterResources('B')" class="cat-btn px-4 py-2 text-sm font-medium rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 whitespace-nowrap">長照 B 單位</button>
+                <button onclick="filterResources('C')" class="cat-btn px-4 py-2 text-sm font-medium rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 whitespace-nowrap">長照 C 據點</button>
+                <button onclick="filterResources('support')" class="cat-btn px-4 py-2 text-sm font-medium rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 whitespace-nowrap">家庭照顧者/失智據點</button>
+                <button onclick="filterResources('non-ltc')" class="cat-btn px-4 py-2 text-sm font-medium rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 whitespace-nowrap">非長照服務資源</button>
+            </div>
+
+            <!-- 卡片展示區 -->
+            <div id="resourceGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 由 JavaScript 自動動態載入 -->
+            </div>
+        </section>
+
+        <!-- ================= TAB 2: 圖片/圖示與動作配對遊戲 ================= -->
+        <section id="tab-game" class="hidden space-y-6">
+            <div class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-gamepad text-amber-300"></i> 長照資源與服務內容 - 互動配對測驗
+                    </h2>
+                    <p class="text-sm text-blue-200 mt-1">請點擊左側「服務機構與據點(圖片/圖示)」，再點擊右側相對應的「服務動作與功能說明」進行正確配對！</p>
+                </div>
+                <div class="flex items-center space-x-4 bg-white/10 px-4 py-2 rounded-xl backdrop-blur-md">
+                    <div class="text-center">
+                        <div class="text-xs text-blue-200">配對計分</div>
+                        <div id="gameScore" class="text-2xl font-extrabold text-amber-300">0 / 6</div>
+                    </div>
+                    <div class="h-8 w-px bg-blue-300/30"></div>
+                    <div class="text-center">
+                        <div class="text-xs text-blue-200">進行時間</div>
+                        <div id="gameTimer" class="text-2xl font-mono text-emerald-300">00:00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 配對遊戲舞台 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 左側：圖片/機構圖示區 (Items Target) -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                    <h3 class="font-bold text-slate-700 flex items-center text-md border-b pb-2">
+                        <i class="fa-solid fa-hospital text-blue-600 mr-2"></i> 【步驟一】選擇長照機構 / 據點圖牌
+                    </h3>
+                    <div id="leftGameCards" class="grid grid-cols-1 gap-3">
+                        <!-- JS 產生左卡 -->
+                    </div>
+                </div>
+
+                <!-- 右側：動作與服務說明區 (Actions Matching) -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                    <h3 class="font-bold text-slate-700 flex items-center text-md border-b pb-2">
+                        <i class="fa-solid fa-hand-holding-medical text-emerald-600 mr-2"></i> 【步驟二】選擇對應服務動作與項目
+                    </h3>
+                    <div id="rightGameCards" class="grid grid-cols-1 gap-3">
+                        <!-- JS 產生右卡 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 完成遊戲獎勵 & 提交區域 -->
+            <div id="gameCompleteBanner" class="hidden bg-emerald-50 border-2 border-emerald-400 p-6 rounded-2xl shadow-lg text-center space-y-4">
+                <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-emerald-800">恭喜！已完成長照實務配對測驗！</h3>
+                <p class="text-slate-600 text-sm max-w-lg mx-auto" id="gameSummaryText">您的配對結果與學習成績已自動計算完成。</p>
+                <div class="flex justify-center space-x-4">
+                    <button onclick="resetGame()" class="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-medium transition">
+                        <i class="fa-solid fa-rotate-right mr-1"></i>重新挑戰
+                    </button>
+                    <button onclick="switchTab('results')" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium shadow-md transition">
+                        <i class="fa-solid fa-file-invoice mr-1"></i>查看成績紀錄與匯出
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 3: 學生測試成績資料表 ================= -->
+        <section id="tab-results" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800 flex items-center">
+                            <i class="fa-solid fa-table text-teal-600 mr-2.5"></i> 課堂測驗成績紀錄資料表
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-1">紀錄本地與即時完成的測試成績，並可匯出至 Google 雲端 / Google 試算表</p>
+                    </div>
+
+                    <!-- 操作按鈕群 -->
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="exportToCSV()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs md:text-sm font-medium shadow transition flex items-center">
+                            <i class="fa-solid fa-file-excel mr-1.5"></i>匯出 CSV (存至雲端)
+                        </button>
+                        <button onclick="openGoogleDriveModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs md:text-sm font-medium shadow transition flex items-center">
+                            <i class="fa-brands fa-google-drive mr-1.5"></i>同步至老師 Google 雲端
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 成績統計 Summary Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-500">測驗學生</div>
+                            <div id="resStudentName" class="font-semibold text-slate-800">尚未測驗</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-star"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-500">配對得分</div>
+                            <div id="resScore" class="font-semibold text-slate-800">0 分</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-500">測驗耗時</div>
+                            <div id="resTime" class="font-semibold text-slate-800">00:00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 成績表格 Table -->
+                <div class="overflow-x-auto rounded-xl border border-slate-200 mt-4">
+                    <table class="w-full text-left text-xs md:text-sm">
+                        <thead class="bg-slate-100 text-slate-600 font-semibold border-b">
+                            <tr>
+                                <th class="p-3.5">時間戳記</th>
+                                <th class="p-3.5">班級/科系</th>
+                                <th class="p-3.5">學號</th>
+                                <th class="p-3.5">學生姓名</th>
+                                <th class="p-3.5">配對題分數</th>
+                                <th class="p-3.5">花費時間</th>
+                                <th class="p-3.5">評語與狀態</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scoreTableBody" class="divide-y divide-slate-100 text-slate-700">
+                            <tr>
+                                <td colspan="7" class="p-6 text-center text-slate-400">目前尚無紀錄，請先完成「配對遊戲」測驗。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Google 雲端硬碟備份與 Web App 說明 Modal -->
+    <div id="googleDriveModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-lg text-slate-800 flex items-center">
+                    <i class="fa-brands fa-google-drive text-emerald-600 mr-2"></i>上傳至老師 Google 雲端硬碟
+                </h3>
+                <button onclick="closeGoogleDriveModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <div class="text-xs text-slate-600 space-y-3 leading-relaxed">
+                <p class="font-semibold text-slate-700">【老師 / 管理者設定說明】</p>
+                <p>若需要讓學生在完成測驗後，成績自動寫入老師的 **Google 試算表 (Google Sheet)**，請依照以下步驟設定：</p>
+                <ol class="list-decimal pl-4 space-y-1 text-slate-500">
+                    <li>開啟老師的 Google 雲端硬碟，新建一份 Google 試算表。</li>
+                    <li>點擊選單「擴充功能」 &gt; 「Apps Script」。</li>
+                    <li>將 Web App 腳本貼上並部署為「網路應用程式」(權限設定為: 任何人皆可存取)。</li>
+                    <li>將取得的 Web App URL 填入下方欄位即可！</li>
+                </ol>
+
+                <div class="mt-2">
+                    <label class="block font-semibold text-slate-700 mb-1">Google Apps Script Web App URL:</label>
+                    <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec" 
+                        class="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-xs">
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 border-t pt-3">
+                <button onclick="closeGoogleDriveModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">關閉</button>
+                <button onclick="sendDataToGoogleSheet()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium shadow">
+                    立即送出測試資料
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 頁腳 Footer -->
+    <footer class="bg-slate-800 text-slate-400 text-xs py-4 text-center mt-10 border-t border-slate-700">
+        <p>社區長照個案管理與實務期中專案 | 報告學生：老服二1 賴昱蓁 (1411353034)</p>
+        <p class="mt-1 text-slate-500">設計基於臺中市霧峰區社區長照資源實務分析</p>
+    </footer>
+
+    <!-- JavaScript 邏輯實作 -->
+    <script>
+        // 1. 簡報資源資料庫 (包含圖片/SVG icon, 名稱, 分類, 屬性, 描述與詳細資訊)
+        const resourceData = [
+            {
+                id: 'res-1',
+                title: '霧峰區文化與景點',
+                category: 'culture',
+                tag: '地方文化特色',
+                tagBg: 'bg-amber-100 text-amber-800',
+                icon: 'fa-landmark',
+                color: 'from-amber-500 to-amber-700',
+                details: [
+                    '霧峰林家花園與宮保第：國定古蹟與歷史文化核心',
+                    '光復新村：保留舊眷村文創特色',
+                    '921地震教育園區：結合青桐林自然生態，深耕環境教育',
+                    '七將軍廟：早期當地居民信仰中心'
+                ]
+            },
+            {
+                id: 'res-a1',
+                title: '臺中市私立健民老人長期照顧中心',
+                category: 'A',
+                tag: '長照 A 單位',
+                tagBg: 'bg-blue-100 text-blue-800',
+                icon: 'fa-sitemap',
+                color: 'from-blue-600 to-indigo-700',
+                address: '臺中市霧峰區中正路146-8號',
+                phone: '04 2330 9358',
+                distance: '3.2公里 (車程8分鐘)',
+                details: ['個案管理服務', '照顧計畫擬定與資源連結', '長照服務申請收費與整合']
+            },
+            {
+                id: 'res-a2',
+                title: '本堂澄清醫院附設護理之家',
+                category: 'A',
+                tag: '長照 A 單位',
+                tagBg: 'bg-blue-100 text-blue-800',
+                icon: 'fa-hospital-user',
+                color: 'from-blue-600 to-indigo-700',
+                address: '臺中市霧峰區中正路720巷5號',
+                phone: '04 2339 1000',
+                distance: '2.8公里 (車程4分鐘)',
+                details: ['長照 A 單位整合服務', '護理照顧與健康管理', '專門收費與擬定復能計畫']
+            },
+            {
+                id: 'res-b1',
+                title: '中華昶齊照護協會私立霧峰綜合長照機構',
+                category: 'B',
+                tag: '長照 B 單位',
+                tagBg: 'bg-purple-100 text-purple-800',
+                icon: 'fa-hand-holding-medical',
+                color: 'from-purple-600 to-purple-800',
+                address: '台中市霧峰區本堂里育仁街 9 號',
+                phone: '04-2339-2341',
+                distance: '2.2公里 (車程5分鐘)',
+                details: ['專責居家照顧服務', '身體照顧與日常生活照顧', '家事服務與長照特約服務']
+            },
+            {
+                id: 'res-b2',
+                title: '立安居家長照機構',
+                category: 'B',
+                tag: '長照 B 單位',
+                tagBg: 'bg-purple-100 text-purple-800',
+                icon: 'fa-house-medical',
+                color: 'from-purple-600 to-purple-800',
+                address: '臺中市霧峰區民生路393-16號',
+                phone: '04 2330 0960',
+                distance: '5.0公里 (車程12分鐘)',
+                details: ['居家式長照服務及身體照顧', '個別化照顧與收費項目諮詢']
+            },
+            {
+                id: 'res-c1',
+                title: '林蘭生慈善基金會',
+                category: 'C',
+                tag: '長照 C 據點',
+                tagBg: 'bg-emerald-100 text-emerald-800',
+                icon: 'fa-people-roof',
+                color: 'from-emerald-600 to-teal-700',
+                address: '台中市霧峰區本堂里18鄰林森路346號',
+                phone: '04-2330-0159',
+                distance: '3.0公里 (車程5分鐘)',
+                details: ['C據點長照站服務', '健康促進活動、社會參與', '預防及延緩失能活動、共餐']
+            },
+            {
+                id: 'res-c2',
+                title: '臺中市霧峰區丁台社區發展協會',
+                category: 'C',
+                tag: '長照 C 據點',
+                tagBg: 'bg-emerald-100 text-emerald-800',
+                icon: 'fa-hands-holding-child',
+                color: 'from-emerald-600 to-teal-700',
+                address: '臺中市霧峰區丁台路444號',
+                phone: '04-23307933',
+                distance: '2.0公里 (車程3分鐘)',
+                details: ['巷弄長照站 C 據點', '社區共餐與健走活動', '預防失能延緩失智課程']
+            },
+            {
+                id: 'res-sup1',
+                title: '伊甸社會福利基金會 (屯三區)',
+                category: 'support',
+                tag: '家托與綜合資源',
+                tagBg: 'bg-rose-100 text-rose-800',
+                icon: 'fa-heart-pulse',
+                color: 'from-rose-500 to-pink-700',
+                address: '霧峰及屯區服務據點',
+                details: ['長照諮詢與受理申請', '照顧服務計畫擬定與資源轉介', '居家照顧服務、喘息服務', '社區輔具站簡易租借']
+            },
+            {
+                id: 'res-sup2',
+                title: '臺中市北柳社區發展協會',
+                category: 'support',
+                tag: '家托與失智支持據點',
+                tagBg: 'bg-rose-100 text-rose-800',
+                icon: 'fa-brain',
+                color: 'from-rose-500 to-pink-700',
+                address: '臺中市霧峰區四德路435巷85號',
+                distance: '290公尺 (車程1分鐘)',
+                details: ['關懷訪視、共餐及送餐服務', '失智症社區社會參與', '提供音樂、藝術、園藝治療', '家庭照顧者支持團體']
+            },
+            {
+                id: 'res-sup3',
+                title: '亞洲大學附屬醫院 (失智共照中心)',
+                category: 'support',
+                tag: '失智共照中心',
+                tagBg: 'bg-cyan-100 text-cyan-800',
+                icon: 'fa-notes-medical',
+                color: 'from-cyan-600 to-blue-700',
+                address: '臺中市霧峰區福新路222號',
+                distance: '1.0公里 (車程2分鐘)',
+                details: ['早期失智症篩檢與評估', '諮詢與輔導、衛教講座', '綠色通道：疑似失智快捷協助機制']
+            },
+            {
+                id: 'res-non1',
+                title: '霧峰區公所',
+                category: 'non-ltc',
+                tag: '非長照服務資源',
+                tagBg: 'bg-slate-200 text-slate-800',
+                icon: 'fa-building-flag',
+                color: 'from-slate-600 to-slate-800',
+                address: '臺中市霧峰區大同路20號',
+                distance: '4.0公里 (車程11分鐘)',
+                details: ['民政 (鄰里、兵役)', '社會福利 (社福補助、急難救助)', '社建與農建維修']
+            },
+            {
+                id: 'res-non2',
+                title: '霧峰調解委員會',
+                category: 'non-ltc',
+                tag: '非長照服務資源',
+                tagBg: 'bg-slate-200 text-slate-800',
+                icon: 'fa-scale-balanced',
+                color: 'from-slate-600 to-slate-800',
+                address: '臺中市雾峰區大同路20號',
+                distance: '4.0公里 (車程11分鐘)',
+                details: ['車禍事故賠償調解', '債權債務、房地產糾紛', '親屬繼承、法院視訊法律諮詢']
+            }
+        ];
+
+        // 2. 配對遊戲配對題目資料對 (Target Pairs)
+        const gamePairsData = [
+            {
+                id: 1,
+                name: '長照 A 單位 (個案管理中心)',
+                sub: '健民長照 / 本堂澄清',
+                icon: 'fa-sitemap',
+                color: 'text-blue-600 border-blue-200 bg-blue-50',
+                actionText: '個案擬定、資源連結與長照服務擬定'
+            },
+            {
+                id: 2,
+                name: '長照 B 單位 (專責服務)',
+                sub: '立安居家 / 霧峰綜合長照',
+                icon: 'fa-hand-holding-medical',
+                color: 'text-purple-600 border-purple-200 bg-purple-50',
+                actionText: '提供專責居家照顧、身體照顧與家事服務'
+            },
+            {
+                id: 3,
+                name: '長照 C 據點 (巷弄長照站)',
+                sub: '林蘭生基金會 / 丁台社區',
+                icon: 'fa-people-roof',
+                color: 'text-emerald-600 border-emerald-200 bg-emerald-50',
+                actionText: '提供社區共餐、健康促進活動及預防延緩失能'
+            },
+            {
+                id: 4,
+                name: '失智共照中心',
+                sub: '亞洲大學附屬醫院',
+                icon: 'fa-hospital-user',
+                color: 'text-cyan-600 border-cyan-200 bg-cyan-50',
+                actionText: '早期失智篩檢評估、衛教與綠色通道快捷專人協助'
+            },
+            {
+                id: 5,
+                name: '失智與家托支持據點',
+                sub: '北柳社區發展協會',
+                icon: 'fa-brain',
+                color: 'text-rose-600 border-rose-200 bg-rose-50',
+                actionText: '提供音樂藝術園藝治療、照顧者支持與送餐'
+            },
+            {
+                id: 6,
+                name: '非長照行政資源',
+                sub: '霧峰區公所 / 調解委員會',
+                icon: 'fa-building-flag',
+                color: 'text-slate-700 border-slate-200 bg-slate-100',
+                actionText: '申辦社福補助、急難救助及法律調解諮詢'
+            }
+        ];
+
+        // 全域狀態 State
+        let currentStudent = null;
+        let selectedLeftId = null;
+        let selectedRightId = null;
+        let matchedCount = 0;
+        let timerInterval = null;
+        let secondsElapsed = 0;
+        let gameScore = 0;
+        let testRecords = [];
+
+        // 初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            renderResources('all');
+            // 嘗試讀取 LocalStorage 已存在資料
+            const savedStudent = localStorage.getItem('ltc_student');
+            if (savedStudent) {
+                currentStudent = JSON.parse(savedStudent);
+                updateUserHeader();
+                document.getElementById('loginModal').classList.add('hidden');
+            }
+            initGame();
+        });
+
+        // 登入處理
+        function handleLogin(e) {
+            e.preventDefault();
+            const name = document.getElementById('studentName').value.trim();
+            const dept = document.getElementById('studentDept').value.trim();
+            const id = document.getElementById('studentId').value.trim();
+
+            if (!name || !dept || !id) return;
+
+            currentStudent = { name, dept, id };
+            localStorage.setItem('ltc_student', JSON.stringify(currentStudent));
+            updateUserHeader();
+            document.getElementById('loginModal').classList.add('hidden');
+        }
+
+        function updateUserHeader() {
+            if (currentStudent) {
+                document.getElementById('userInfoHeader').classList.remove('hidden');
+                document.getElementById('userHeaderName').innerText = currentStudent.name;
+                document.getElementById('userHeaderDept').innerText = `(${currentStudent.dept})`;
+            }
+        }
+
+        // 頁籤切換
+        function switchTab(tabName) {
+            ['learn', 'game', 'results'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                const btn = document.getElementById(`nav-${t}`);
+                btn.classList.remove('bg-teal-900/80', 'text-amber-300');
+                btn.classList.add('hover:bg-teal-900/50');
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`nav-${tabName}`);
+            activeBtn.classList.add('bg-teal-900/80', 'text-amber-300');
+
+            if (tabName === 'game' && !timerInterval && matchedCount < gamePairsData.length) {
+                startTimer();
+            }
+        }
+
+        // 渲染知識學習庫卡片
+        function renderResources(category) {
+            const grid = document.getElementById('resourceGrid');
+            grid.innerHTML = '';
+
+            const filtered = category === 'all' 
+                ? resourceData 
+                : resourceData.filter(r => r.category === category);
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition flex flex-col justify-between';
+                
+                let detailsList = item.details.map(d => `<li class="flex items-start"><i class="fa-solid fa-check text-emerald-500 mr-2 mt-1 text-xs"></i><span>${d}</span></li>`).join('');
+                
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-xs px-2.5 py-1 rounded-full font-semibold ${item.tagBg}">${item.tag}</span>
+                            ${item.distance ? `<span class="text-xs text-slate-400 font-mono"><i class="fa-solid fa-location-dot mr-1"></i>${item.distance}</span>` : ''}
+                        </div>
+                        <div class="flex items-center space-x-3 mb-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${item.color} text-white flex items-center justify-center font-bold text-lg shadow">
+                                <i class="fa-solid ${item.icon}"></i>
+                            </div>
+                            <h3 class="font-bold text-slate-800 text-base leading-snug">${item.title}</h3>
+                        </div>
+                        ${item.address ? `<p class="text-xs text-slate-500 mb-1"><i class="fa-solid fa-map-pin mr-1 text-slate-400"></i>${item.address}</p>` : ''}
+                        ${item.phone ? `<p class="text-xs text-slate-500 mb-3"><i class="fa-solid fa-phone mr-1 text-slate-400"></i>${item.phone}</p>` : ''}
+                        <ul class="text-xs text-slate-600 space-y-1.5 mt-2 border-t pt-3 border-slate-100">
+                            ${detailsList}
+                        </ul>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterResources(cat) {
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.remove('bg-teal-600', 'text-white');
+                btn.classList.add('bg-white', 'text-slate-600');
+            });
+            event.target.classList.remove('bg-white', 'text-slate-600');
+            event.target.classList.add('bg-teal-600', 'text-white');
+            renderResources(cat);
+        }
+
+        // ================= 3. 配對遊戲邏輯 Implementation =================
+        function initGame() {
+            matchedCount = 0;
+            gameScore = 0;
+            selectedLeftId = null;
+            selectedRightId = null;
+            document.getElementById('gameScore').innerText = `0 / ${gamePairsData.length}`;
+            document.getElementById('gameCompleteBanner').classList.add('hidden');
+
+            // 產生隨機排序左卡與右卡
+            const leftItems = [...gamePairsData].sort(() => Math.random() - 0.5);
+            const rightItems = [...gamePairsData].sort(() => Math.random() - 0.5);
+
+            const leftContainer = document.getElementById('leftGameCards');
+            const rightContainer = document.getElementById('rightGameCards');
+
+            leftContainer.innerHTML = '';
+            rightContainer.innerHTML = '';
+
+            leftItems.forEach(item => {
+                const el = document.createElement('div');
+                el.className = `matching-card p-4 rounded-xl border-2 cursor-pointer ${item.color} flex items-center space-x-3`;
+                el.dataset.id = item.id;
+                el.onclick = () => selectLeft(item.id, el);
+                el.innerHTML = `
+                    <div class="w-10 h-10 rounded-lg bg-white/80 flex items-center justify-center text-lg shadow-sm">
+                        <i class="fa-solid ${item.icon}"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-sm">${item.name}</div>
+                        <div class="text-xs opacity-75">${item.sub}</div>
+                    </div>
+                `;
+                leftContainer.appendChild(el);
+            });
+
+            rightItems.forEach(item => {
+                const el = document.createElement('div');
+                el.className = `matching-card p-4 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-slate-700 flex items-center space-x-3`;
+                el.dataset.id = item.id;
+                el.onclick = () => selectRight(item.id, el);
+                el.innerHTML = `
+                    <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs text-slate-600 font-bold">
+                        ?
+                    </div>
+                    <div class="text-xs md:text-sm font-medium leading-relaxed">
+                        ${item.actionText}
+                    </div>
+                `;
+                rightContainer.appendChild(el);
+            });
+
+            resetTimer();
+        }
+
+        function selectLeft(id, el) {
+            if (el.classList.contains('matched')) return;
+
+            document.querySelectorAll('#leftGameCards .matching-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedLeftId = id;
+
+            checkPair();
+        }
+
+        function selectRight(id, el) {
+            if (el.classList.contains('matched')) return;
+
+            document.querySelectorAll('#rightGameCards .matching-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedRightId = id;
+
+            checkPair();
+        }
+
+        function checkPair() {
+            if (selectedLeftId !== null && selectedRightId !== null) {
+                const leftCard = document.querySelector(`#leftGameCards .matching-card[data-id="${selectedLeftId}"]`);
+                const rightCard = document.querySelector(`#rightGameCards .matching-card[data-id="${selectedRightId}"]`);
+
+                if (selectedLeftId === selectedRightId) {
+                    // 配對成功
+                    leftCard.classList.remove('selected');
+                    leftCard.classList.add('matched');
+                    rightCard.classList.remove('selected');
+                    rightCard.classList.add('matched');
+
+                    matchedCount++;
+                    gameScore += Math.round(100 / gamePairsData.length);
+                    document.getElementById('gameScore').innerText = `${matchedCount} / ${gamePairsData.length}`;
+
+                    selectedLeftId = null;
+                    selectedRightId = null;
+
+                    if (matchedCount === gamePairsData.length) {
+                        finishGame();
+                    }
+                } else {
+                    // 配對錯誤
+                    leftCard.classList.add('wrong');
+                    rightCard.classList.add('wrong');
+
+                    setTimeout(() => {
+                        leftCard.classList.remove('wrong', 'selected');
+                        rightCard.classList.remove('wrong', 'selected');
+                        selectedLeftId = null;
+                        selectedRightId = null;
+                    }, 500);
+                }
+            }
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                const mins = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+                const secs = String(secondsElapsed % 60).padStart(2, '0');
+                document.getElementById('gameTimer').innerText = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function resetTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = null;
+            secondsElapsed = 0;
+            document.getElementById('gameTimer').innerText = '00:00';
+        }
+
+        function finishGame() {
+            if (timerInterval) clearInterval(timerInterval);
+            const timeFormatted = document.getElementById('gameTimer').innerText;
+            
+            document.getElementById('gameCompleteBanner').classList.remove('hidden');
+            
+            // 紀錄成績資料
+            const now = new Date().toLocaleString('zh-TW');
+            const record = {
+                timestamp: now,
+                dept: currentStudent ? currentStudent.dept : '未填寫',
+                id: currentStudent ? currentStudent.id : '無',
+                name: currentStudent ? currentStudent.name : '匿名學生',
+                score: 100,
+                time: timeFormatted,
+                status: '配對完成 (滿分)'
+            };
+
+            testRecords.unshift(record);
+            updateResultTable();
+        }
+
+        function resetGame() {
+            initGame();
+            startTimer();
+        }
+
+        // 4. 更新成績資料表 Table
+        function updateResultTable() {
+            if (testRecords.length > 0) {
+                const latest = testRecords[0];
+                document.getElementById('resStudentName').innerText = `${latest.name} (${latest.dept})`;
+                document.getElementById('resScore').innerText = `${latest.score} 分`;
+                document.getElementById('resTime').innerText = latest.time;
+            }
+
+            const tbody = document.getElementById('scoreTableBody');
+            tbody.innerHTML = '';
+
+            testRecords.forEach(rec => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="p-3.5 font-mono text-slate-500">${rec.timestamp}</td>
+                    <td class="p-3.5 font-medium">${rec.dept}</td>
+                    <td class="p-3.5 font-mono">${rec.id}</td>
+                    <td class="p-3.5 font-bold text-slate-800">${rec.name}</td>
+                    <td class="p-3.5"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded text-xs">${rec.score} 分</span></td>
+                    <td class="p-3.5 font-mono">${rec.time}</td>
+                    <td class="p-3.5 text-slate-600">${rec.status}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 5. 匯出成績 CSV 檔
+        function exportToCSV() {
+            if (testRecords.length === 0) {
+                alert('目前沒有測驗成績紀錄可以匯出！');
+                return;
+            }
+
+            let csvContent = "\uFEFF時間戳記,科系班級,學號,學生姓名,測驗分數,花費時間,狀態\n";
+            testRecords.forEach(r => {
+                csvContent += `"${r.timestamp}","${r.dept}","${r.id}","${r.name}","${r.score}","${r.time}","${r.status}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `長照實務測驗成績表_${currentStudent ? currentStudent.name : '學生'}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 6. 模擬 / 傳送資料至 Google Sheet
+        function openGoogleDriveModal() {
+            document.getElementById('googleDriveModal').classList.remove('hidden');
+        }
+
+        function closeGoogleDriveModal() {
+            document.getElementById('googleDriveModal').classList.add('hidden');
+        }
+
+        function sendDataToGoogleSheet() {
+            const url = document.getElementById('scriptUrlInput').value.trim();
+            if (!url) {
+                alert('請先輸入 Google Apps Script 部署之 Web App 網址！');
+                return;
+            }
+
+            if (testRecords.length === 0) {
+                alert('請先完成一次配對測驗再上傳！');
+                return;
+            }
+
+            const latestRecord = testRecords[0];
+
+            fetch(url, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(latestRecord)
+            }).then(() => {
+                alert('成績已成功傳送至 Google 雲端試算表網址！');
+                closeGoogleDriveModal();
+            }).catch(err => {
+                alert('連線上傳時發生錯誤：' + err.message);
+            });
+        }
+    </script>
+</body>
+</html>
